@@ -1,0 +1,9 @@
+Package: com.jmswangit.volumeboostoverlay
+Name: VolumeBoostOverlay
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Adds an independent volume boost control to the iOS YouTube video overlay.
+Maintainer: jmswangit
+Author: jmswangit
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 15.0), com.ps.ytvideooverlay (>= 2.2.0)
