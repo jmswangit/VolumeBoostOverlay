@@ -16,8 +16,9 @@
 
 #define TweakKey @"VolumeBoostOverlay"
 
-#define MIN_BOOST 1.0f
+#define MIN_BOOST 0.0f
 #define MAX_BOOST 20.0f
+#define UNITY_BOOST 1.0f
 #define BOOST_STEP 0.5f
 
 static NSString *VolumeBoostUpdateNotification = @"VolumeBoostUpdateNotification";
@@ -54,15 +55,25 @@ static NSString *exactBoostLabel(float boost) {
     return [NSString stringWithFormat:@"%.0f%%", boost * 100.0f];
 }
 
-static NSString *buttonBoostLabel(float boost) {
-    float percent = boost * 100.0f;
-    if (percent >= 1000.0f) {
-        float k = percent / 1000.0f;
-        return fmodf(k, 1.0f) == 0.0f
-            ? [NSString stringWithFormat:@"%.0fK%%", k]
-            : [NSString stringWithFormat:@"%.1fK%%", k];
+// Standard volume icon for the overlay button. Falls back to an SF Symbol if
+// YouTube's own icon set does not contain the expected glyph.
+static UIImage *VolumeBoostImage(BOOL muted) {
+    UIColor *color = [%c(YTColor) white1];
+    UIImage *image = [%c(QTMIcon) imageWithName:muted ? @"ic_volume_off" : @"ic_volume_up" color:color];
+    if (image) {
+        return image;
     }
-    return [NSString stringWithFormat:@"%.0f%%", percent];
+    image = [%c(QTMIcon) imageWithName:muted ? @"ic_volume_mute" : @"ic_volume_up_filled" color:color];
+    if (image) {
+        return image;
+    }
+    if (@available(iOS 13.0, *)) {
+        UIImage *symbol = [UIImage systemImageNamed:muted ? @"speaker.slash.fill" : @"speaker.wave.3.fill"];
+        if (symbol) {
+            return symbol;
+        }
+    }
+    return nil;
 }
 
 #pragma mark - Audio
@@ -80,10 +91,10 @@ static void RegisterRenderer(id renderer) {
 
 static float GetLogarithmicAudioMultiplier() {
     float m = currentBoost;
-    if (m <= 1.0f) {
+    if (m <= UNITY_BOOST) {
         return m;
     }
-    return powf(200.0f, (m - MIN_BOOST) / (MAX_BOOST - MIN_BOOST));
+    return powf(200.0f, (m - UNITY_BOOST) / (MAX_BOOST - UNITY_BOOST));
 }
 
 static void NotifyVolumeChange() {
@@ -223,9 +234,19 @@ static void didSelectBoost(float boost) {
     %orig;
 }
 
+- (UIImage *)buttonImage:(NSString *)tweakId {
+    if ([tweakId isEqualToString:TweakKey]) {
+        return VolumeBoostImage(currentBoost <= MIN_BOOST);
+    }
+    return %orig;
+}
+
 %new(v@:@)
 - (void)updateVolumeBoostButton:(id)arg {
-    [self.overlayButtons[TweakKey] setTitle:buttonBoostLabel(currentBoost) forState:UIControlStateNormal];
+    YTQTMButton *button = self.overlayButtons[TweakKey];
+    if (button) {
+        [button setImage:VolumeBoostImage(currentBoost <= MIN_BOOST) forState:UIControlStateNormal];
+    }
 }
 
 %new(v@:@)
@@ -255,9 +276,19 @@ static void didSelectBoost(float boost) {
     %orig;
 }
 
+- (UIImage *)buttonImage:(NSString *)tweakId {
+    if ([tweakId isEqualToString:TweakKey]) {
+        return VolumeBoostImage(currentBoost <= MIN_BOOST);
+    }
+    return %orig;
+}
+
 %new(v@:@)
 - (void)updateVolumeBoostButton:(id)arg {
-    [self.overlayButtons[TweakKey] setTitle:buttonBoostLabel(currentBoost) forState:UIControlStateNormal];
+    YTQTMButton *button = self.overlayButtons[TweakKey];
+    if (button) {
+        [button setImage:VolumeBoostImage(currentBoost <= MIN_BOOST) forState:UIControlStateNormal];
+    }
 }
 
 %new(v@:@)
@@ -540,7 +571,7 @@ VolumeBoostSliderAlertView *alert;
     initYTVideoOverlay(TweakKey, @{
         AccessibilityLabelKey: @"Volume boost",
         SelectorKey: @"didPressVolumeBoost:",
-        AsTextKey: @YES,
+        UpdateImageOnVisibleKey: @YES,
     });
     %init(AVFoundation);
     %init(Top);
